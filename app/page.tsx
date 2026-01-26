@@ -1,7 +1,8 @@
 import Link from "next/link"
-import Image from "next/image"
 import { Instagram, Linkedin } from "lucide-react"
 import VideoBackground from "@/components/VideoBackground"
+
+export const dynamic = "force-dynamic"
 
 export default function Home() {
   return (
@@ -10,13 +11,11 @@ export default function Home() {
       <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-6 pt-12 pb-32">
         {/* Logo */}
         <div className="animate-fade-in mb-16">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/assets/Vividon_wordsymbol_neg.svg"
             alt="Vividon"
-            width={160}
-            height={56}
             className="h-12 md:h-14 w-auto mx-auto mb-4"
-            priority
           />
           <p className="text-xs md:text-sm text-neutral-400 tracking-[0.35em] uppercase text-center">
             Lighting Reinvented

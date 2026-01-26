@@ -1,6 +1,7 @@
 import Link from "next/link"
-import Image from "next/image"
 import { ArrowLeft } from "lucide-react"
+
+export const dynamic = "force-dynamic"
 
 export default function AboutPage() {
   return (
@@ -20,11 +21,10 @@ export default function AboutPage() {
       <main className="flex-1 flex flex-col items-center px-6 pb-20 pt-10">
         <div className="w-full max-w-2xl">
           {/* Logo */}
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/assets/Vividon_wordsymbol_neg.svg"
             alt="Vividon"
-            width={120}
-            height={40}
             className="h-10 w-auto mx-auto mb-12"
           />
 

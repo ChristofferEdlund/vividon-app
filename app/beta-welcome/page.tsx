@@ -1,8 +1,9 @@
 import Link from "next/link"
-import Image from "next/image"
 import { Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import VideoBackground from "@/components/VideoBackground"
+
+export const dynamic = "force-dynamic"
 
 export default function BetaWelcomePage() {
   return (
@@ -12,11 +13,10 @@ export default function BetaWelcomePage() {
         {/* Logo */}
         <div className="animate-fade-in mb-12">
           <Link href="/">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src="/assets/Vividon_wordsymbol_neg.svg"
               alt="Vividon"
-              width={120}
-              height={48}
               className="h-10 md:h-12 w-auto mx-auto mb-4"
             />
           </Link>

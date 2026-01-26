@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import Image from "next/image"
 import { useRouter } from "next/navigation"
 import VideoBackground from "@/components/VideoBackground"
 import { Input } from "@/components/ui/input"
@@ -32,11 +31,10 @@ export default function BetaAccessPage() {
         {/* Logo */}
         <div className="animate-fade-in mb-12">
           <Link href="/">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src="/assets/Vividon_wordsymbol_neg.svg"
               alt="Vividon"
-              width={120}
-              height={48}
               className="h-10 md:h-12 w-auto mx-auto mb-4"
             />
           </Link>
