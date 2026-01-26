@@ -1,0 +1,119 @@
+import Link from "next/link"
+import Image from "next/image"
+import { Instagram, Linkedin } from "lucide-react"
+import VideoBackground from "@/components/VideoBackground"
+
+export default function Home() {
+  return (
+    <div className="min-h-screen bg-black flex flex-col relative overflow-hidden">
+      <VideoBackground />
+      <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-6 pt-12 pb-32">
+        {/* Logo */}
+        <div className="animate-fade-in mb-16">
+          <Image
+            src="/assets/Vividon_wordsymbol_neg.svg"
+            alt="Vividon"
+            width={160}
+            height={56}
+            className="h-12 md:h-14 w-auto mx-auto mb-4"
+            priority
+          />
+          <p className="text-xs md:text-sm text-neutral-400 tracking-[0.35em] uppercase text-center">
+            Lighting Reinvented
+          </p>
+        </div>
+
+        {/* Hero Content */}
+        <div
+          className="text-center mb-10 animate-fade-in"
+          style={{ animationDelay: "0.1s" }}
+        >
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-light text-white leading-tight mb-8">
+            Beta is live
+          </h1>
+
+          <p className="text-base md:text-lg text-neutral-400 mb-1">
+            Relight images inside Photoshop without prompts.
+          </p>
+          <p className="text-base md:text-lg text-neutral-400">
+            Curated Lights appear as editable layers.
+          </p>
+        </div>
+
+        {/* CTA Buttons */}
+        <div
+          className="flex flex-col sm:flex-row items-center gap-4 animate-fade-in"
+          style={{ animationDelay: "0.2s" }}
+        >
+          <Link
+            href="/signup"
+            className="px-8 py-3 bg-[#3B82F6] hover:bg-[#2563EB] text-white font-medium rounded-lg transition-colors"
+          >
+            Sign up for Beta
+          </Link>
+          <Link
+            href="/beta-access"
+            className="px-8 py-3 bg-[#10B981] hover:bg-[#059669] text-white font-medium rounded-lg transition-colors"
+          >
+            Access Beta
+          </Link>
+        </div>
+
+        {/* View Tutorial Link */}
+        <div className="mt-10 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+          <Link
+            href="/about"
+            className="inline-flex items-center gap-2 text-xs text-neutral-500 tracking-[0.2em] uppercase hover:text-neutral-300 transition-colors"
+          >
+            View Tutorial
+            <span>→</span>
+          </Link>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer
+        className="absolute bottom-0 left-0 right-0 pb-6 text-center animate-fade-in z-20"
+        style={{ animationDelay: "0.4s" }}
+      >
+        <div className="mb-4 flex items-center justify-center gap-4">
+          <Link
+            href="/about"
+            className="inline-flex items-center px-5 py-2.5 text-xs text-neutral-500 bg-neutral-900/80 border border-neutral-800 rounded hover:border-neutral-600 hover:text-neutral-300 transition-colors"
+          >
+            About Vividon
+          </Link>
+          <a
+            href="mailto:info@vividonlab.com"
+            className="inline-flex items-center px-5 py-2.5 text-xs text-neutral-500 bg-neutral-900/80 border border-neutral-800 rounded hover:border-neutral-600 hover:text-neutral-300 transition-colors"
+          >
+            Press inquiries & investors
+          </a>
+        </div>
+        <div className="mb-4 flex items-center justify-center gap-4">
+          <a
+            href="https://www.instagram.com/vividonlab/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center text-neutral-500 hover:text-neutral-300 transition-colors"
+            aria-label="Follow Vividon on Instagram"
+          >
+            <Instagram size={20} />
+          </a>
+          <a
+            href="https://www.linkedin.com/company/vividonlab/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center text-neutral-500 hover:text-neutral-300 transition-colors"
+            aria-label="Follow Vividon on LinkedIn"
+          >
+            <Linkedin size={20} />
+          </a>
+        </div>
+        <p className="text-xs text-neutral-600">
+          © 2025 Vividon. All rights reserved.
+        </p>
+      </footer>
+    </div>
+  )
+}
