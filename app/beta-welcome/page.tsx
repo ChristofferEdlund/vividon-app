@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Download } from "lucide-react"
+import { DownloadIcon } from "@/components/Icons"
 import { Button } from "@/components/ui/button"
 import VideoBackground from "@/components/VideoBackground"
 
@@ -40,7 +40,7 @@ export default function BetaWelcomePage() {
             className="h-12 px-8 bg-[#10B981] hover:bg-[#059669] text-white font-medium"
           >
             <a href="/downloads/vividon-plugin.ccx" download>
-              <Download className="w-5 h-5 mr-2" />
+              <DownloadIcon className="w-5 h-5 mr-2" />
               Download Plugin
             </a>
           </Button>

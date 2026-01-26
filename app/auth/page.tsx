@@ -7,7 +7,7 @@ import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeftIcon } from "@/components/Icons"
 import { createClient } from "@/lib/supabase/client"
 
 const authSchema = z.object({
@@ -115,7 +115,7 @@ export default function AuthPage() {
         <div className="flex items-center gap-4">
           <Link href="/">
             <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeftIcon className="h-5 w-5" />
             </Button>
           </Link>
           <h1 className="text-2xl font-bold">

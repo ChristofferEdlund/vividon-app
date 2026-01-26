@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeftIcon } from "@/components/Icons"
 import BetaSignup from "@/components/BetaSignup"
 
 export default function SignupPage() {
@@ -13,7 +13,7 @@ export default function SignupPage() {
           href="/"
           className="inline-flex items-center gap-2 text-neutral-400 hover:text-white transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeftIcon className="w-4 h-4" />
           <span className="text-sm">Back</span>
         </Link>
       </header>

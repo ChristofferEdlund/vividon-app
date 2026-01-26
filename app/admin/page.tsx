@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, Download, Search, Settings, LogOut } from "lucide-react"
+import { ArrowLeftIcon, DownloadIcon, SearchIcon, SettingsIcon, LogOutIcon } from "@/components/Icons"
 import {
   Table,
   TableBody,
@@ -159,29 +159,29 @@ export default function AdminPage() {
           <div className="flex items-center gap-4">
             <Link href="/">
               <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeftIcon className="h-5 w-5" />
               </Button>
             </Link>
             <h1 className="text-2xl md:text-3xl font-bold">Waitlist Signups</h1>
           </div>
           <div className="flex gap-2">
             <Button onClick={exportToCSV} variant="outline" className="gap-2">
-              <Download className="h-4 w-4" />
+              <DownloadIcon className="h-4 w-4" />
               Export CSV
             </Button>
             <Link href="/admin/settings">
               <Button variant="ghost" size="icon">
-                <Settings className="h-5 w-5" />
+                <SettingsIcon className="h-5 w-5" />
               </Button>
             </Link>
             <Button variant="ghost" size="icon" onClick={handleSignOut}>
-              <LogOut className="h-5 w-5" />
+              <LogOutIcon className="h-5 w-5" />
             </Button>
           </div>
         </div>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by email..."
             value={search}
