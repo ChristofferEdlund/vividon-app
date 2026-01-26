@@ -1,9 +1,9 @@
+"use client"
+
 import Link from "next/link"
 import { Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import VideoBackground from "@/components/VideoBackground"
-
-export const dynamic = "force-dynamic"
 
 export default function BetaWelcomePage() {
   return (

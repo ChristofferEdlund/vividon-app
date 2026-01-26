@@ -1,8 +1,8 @@
+"use client"
+
 import Link from "next/link"
 import { Instagram, Linkedin } from "lucide-react"
 import VideoBackground from "@/components/VideoBackground"
-
-export const dynamic = "force-dynamic"
 
 export default function Home() {
   return (

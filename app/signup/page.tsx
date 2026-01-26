@@ -1,8 +1,8 @@
+"use client"
+
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import BetaSignup from "@/components/BetaSignup"
-
-export const dynamic = "force-dynamic"
 
 export default function SignupPage() {
   return (
