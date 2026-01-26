@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import VideoBackground from "@/components/VideoBackground"
+// import VideoBackground from "@/components/VideoBackground"
 
 // Inline SVG icons to avoid lucide-react serialization issues
 function InstagramIcon() {
@@ -27,7 +27,7 @@ function LinkedinIcon() {
 export default function Home() {
   return (
     <div className="min-h-screen bg-black flex flex-col relative overflow-hidden">
-      <VideoBackground />
+      {/* <VideoBackground /> */}
       <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-6 pt-12 pb-32">
         {/* Logo */}
         <div className="animate-fade-in mb-16">
