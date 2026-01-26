@@ -3,7 +3,7 @@
 const VideoBackground = () => {
   return (
     <div className="fixed inset-0 z-0 overflow-hidden">
-      <div className="absolute inset-0 bg-background/50 z-10" />
+      <div className="absolute inset-0 bg-black/50 z-10" />
       <video
         autoPlay
         loop
