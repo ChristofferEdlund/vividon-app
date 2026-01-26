@@ -11,6 +11,9 @@ export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
   title: "Vividon - AI-Powered Image Relighting",
   description: "Transform your images with AI-powered relighting for Photoshop",
+  icons: {
+    icon: "/favicon.svg",
+  },
 }
 
 export default function RootLayout({
