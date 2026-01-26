@@ -1,35 +1,42 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import VideoBackground from "@/components/VideoBackground"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import AuthForm from "@/components/AuthForm"
+import { createClient } from "@/lib/supabase/client"
 
 export default function BetaAccessPage() {
-  const [code, setCode] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const supabase = createClient()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+  useEffect(() => {
+    // Check if user is already logged in
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.push("/dashboard")
+      }
+    }
+    checkSession()
 
-    // TODO: Add backend validation for beta codes later
-    // For now, allow access without code validation
-    setTimeout(() => {
-      setIsLoading(false)
-      router.push("/beta-welcome")
-    }, 500)
-  }
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        router.push("/dashboard")
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router, supabase.auth])
 
   return (
     <div className="relative min-h-screen flex flex-col overflow-hidden">
       <VideoBackground />
       <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-6 py-12">
         {/* Logo */}
-        <div className="animate-fade-in mb-12">
+        <div className="animate-fade-in mb-8">
           <Link href="/">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -43,7 +50,7 @@ export default function BetaAccessPage() {
           </p>
         </div>
 
-        {/* Access Code Form */}
+        {/* Auth Form */}
         <div
           className="w-full max-w-sm animate-fade-in"
           style={{ animationDelay: "0.1s" }}
@@ -51,38 +58,24 @@ export default function BetaAccessPage() {
           <h1 className="text-2xl md:text-3xl font-light text-white text-center mb-2">
             Access Beta
           </h1>
-          <p className="text-sm text-neutral-400 text-center mb-8">
-            Enter your beta access code to continue
+          <p className="text-sm text-neutral-400 text-center mb-6">
+            Sign up to get 10 free credits
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              type="text"
-              placeholder="Enter your code"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              className="h-12 bg-neutral-900/80 border-neutral-700 text-white placeholder:text-neutral-500 text-center text-lg tracking-widest uppercase"
-              maxLength={20}
-            />
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="w-full h-12 bg-[#10B981] hover:bg-[#059669] text-white font-medium"
-            >
-              {isLoading ? "Validating..." : "Continue"}
-            </Button>
-          </form>
+          <div className="bg-neutral-900/80 border border-neutral-800 rounded-lg p-6">
+            <AuthForm redirectTo="/dashboard" view="sign_up" />
+          </div>
 
           <p className="text-xs text-neutral-500 text-center mt-6">
-            Don&apos;t have a code?{" "}
+            Just want to stay updated?{" "}
             <Link href="/signup" className="text-[#3B82F6] hover:underline">
-              Sign up for Beta
+              Join the waitlist
             </Link>
           </p>
         </div>
 
         {/* Back Link */}
-        <div className="mt-10 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+        <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.2s" }}>
           <Link
             href="/"
             className="inline-flex items-center gap-2 text-xs text-neutral-500 tracking-[0.2em] uppercase hover:text-neutral-300 transition-colors"

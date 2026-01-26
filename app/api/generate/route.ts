@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { createClient } from "@/lib/supabase/server"
-import { db, userProfiles, generations, creditTransactions } from "@/lib/db"
+import { db } from "@/lib/db"
+import { userProfiles, generations, creditTransactions } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
+import { validateApiKey } from "@/lib/api-keys"
 
 // Credit costs per quality tier
 const CREDIT_COSTS = {
@@ -20,44 +22,38 @@ const MODEL_MAP = {
 
 export async function POST(request: NextRequest) {
   try {
-    // Get authorization header (API key from plugin)
+    // Get authorization header
     const authHeader = request.headers.get("authorization")
     if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized - Bearer token required" }, { status: 401 })
     }
 
-    const apiKey = authHeader.slice(7)
+    const token = authHeader.slice(7)
 
-    // For now, validate against Supabase auth
-    // TODO: Add API key validation for plugin authentication
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    // Parse request body
-    const body = await request.json()
-    const {
-      inputFileUri,
-      prompt,
-      aspectRatio = "1:1",
-      qualityTier = "balanced",
-      referenceImageUri,
-    } = body
-
-    if (!inputFileUri || !prompt) {
-      return NextResponse.json(
-        { error: "Missing required fields: inputFileUri, prompt" },
-        { status: 400 }
-      )
-    }
-
-    // Get user profile and check credits
     let userId: string
     let userProfile: typeof userProfiles.$inferSelect | null = null
 
-    if (user) {
+    // Check if token is an API key (starts with "viv_") or a session token
+    if (token.startsWith("viv_")) {
+      // API key authentication (from plugin)
+      const validation = await validateApiKey(token)
+      if (!validation) {
+        return NextResponse.json({ error: "Invalid API key" }, { status: 401 })
+      }
+      userId = validation.user.id
+      userProfile = validation.user
+    } else {
+      // Session-based authentication (from web)
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+      }
+
       userId = user.id
+
+      // Get user profile
       const profiles = await db
         .select()
         .from(userProfiles)
@@ -77,30 +73,50 @@ export async function POST(request: NextRequest) {
           .returning()
         userProfile = newProfiles[0]
       }
+    }
 
-      // Check credits
-      const creditCost = CREDIT_COSTS[qualityTier as keyof typeof CREDIT_COSTS] || 5
-      if (userProfile.creditsRemaining < creditCost) {
-        return NextResponse.json(
-          {
-            error: "Insufficient credits",
-            creditsRemaining: userProfile.creditsRemaining,
-            creditCost,
-          },
-          { status: 402 }
-        )
-      }
-    } else {
-      // Anonymous/API key user - for now, use a placeholder
-      // TODO: Implement proper API key authentication
+    // Parse request body
+    const body = await request.json()
+    const {
+      inputFileUri,
+      inputBase64,
+      inputMimeType = "image/png",
+      prompt,
+      aspectRatio = "1:1",
+      qualityTier = "balanced",
+      referenceImageUri,
+      referenceBase64,
+    } = body
+
+    // Require either URI or base64
+    if (!inputFileUri && !inputBase64) {
       return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
+        { error: "Missing required field: inputFileUri or inputBase64" },
+        { status: 400 }
+      )
+    }
+
+    if (!prompt) {
+      return NextResponse.json(
+        { error: "Missing required field: prompt" },
+        { status: 400 }
+      )
+    }
+
+    // Check credits
+    const creditCost = CREDIT_COSTS[qualityTier as keyof typeof CREDIT_COSTS] || 5
+    if (userProfile!.creditsRemaining < creditCost) {
+      return NextResponse.json(
+        {
+          error: "Insufficient credits",
+          creditsRemaining: userProfile!.creditsRemaining,
+          creditCost,
+        },
+        { status: 402 }
       )
     }
 
     // Create generation record
-    const creditCost = CREDIT_COSTS[qualityTier as keyof typeof CREDIT_COSTS] || 5
     const model = MODEL_MAP[qualityTier as keyof typeof MODEL_MAP] || MODEL_MAP.balanced
 
     const [generation] = await db
@@ -111,7 +127,7 @@ export async function POST(request: NextRequest) {
         qualityTier,
         creditsCost: creditCost,
         status: "processing",
-        inputFileUri,
+        inputFileUri: inputFileUri || "base64-upload",
         prompt,
         metadata: { aspectRatio, referenceImageUri },
       })
@@ -123,15 +139,26 @@ export async function POST(request: NextRequest) {
       const geminiModel = genAI.getGenerativeModel({ model })
 
       // Build content parts
-      const parts: any[] = [
-        {
+      const parts: any[] = []
+
+      // Add input image
+      if (inputFileUri) {
+        parts.push({
           fileData: {
-            mimeType: "image/png",
+            mimeType: inputMimeType,
             fileUri: inputFileUri,
           },
-        },
-      ]
+        })
+      } else if (inputBase64) {
+        parts.push({
+          inlineData: {
+            mimeType: inputMimeType,
+            data: inputBase64,
+          },
+        })
+      }
 
+      // Add reference image if provided
       if (referenceImageUri) {
         parts.push({
           fileData: {
@@ -139,8 +166,16 @@ export async function POST(request: NextRequest) {
             fileUri: referenceImageUri,
           },
         })
+      } else if (referenceBase64) {
+        parts.push({
+          inlineData: {
+            mimeType: "image/png",
+            data: referenceBase64,
+          },
+        })
       }
 
+      // Add prompt
       parts.push({ text: prompt })
 
       // Generate
