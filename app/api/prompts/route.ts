@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { db, promptLibrary } from "@/lib/db"
 import { eq, asc } from "drizzle-orm"
 
+export const dynamic = "force-dynamic"
+
 // GET /api/prompts - Get all public prompts (for plugin)
 export async function GET(request: NextRequest) {
   try {
