@@ -6,6 +6,8 @@ import { Providers } from "./providers"
 
 const inter = Inter({ subsets: ["latin"] })
 
+export const dynamic = "force-dynamic"
+
 export const metadata: Metadata = {
   title: "Vividon - AI-Powered Image Relighting",
   description: "Transform your images with AI-powered relighting for Photoshop",
