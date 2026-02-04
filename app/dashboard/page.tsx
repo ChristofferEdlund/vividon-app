@@ -217,16 +217,26 @@ export default function DashboardPage() {
       <main className="max-w-4xl mx-auto px-6 py-12">
         {/* Credits Card */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 mb-8">
-          <h2 className="text-lg font-medium text-white mb-4">Your Credits</h2>
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-bold text-[#10B981]">
-              {profile?.creditsRemaining ?? 0}
-            </span>
-            <span className="text-neutral-400">credits remaining</span>
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-lg font-medium text-white mb-4">Your Credits</h2>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-bold text-[#10B981]">
+                  {profile?.creditsRemaining ?? 0}
+                </span>
+                <span className="text-neutral-400">credits remaining</span>
+              </div>
+              <p className="text-sm text-neutral-500 mt-2">
+                Total used: {profile?.creditsUsedTotal ?? 0} credits
+              </p>
+            </div>
+            <Button
+              asChild
+              className="bg-[#10B981] hover:bg-[#059669] text-black"
+            >
+              <Link href="/pricing">Buy Credits</Link>
+            </Button>
           </div>
-          <p className="text-sm text-neutral-500 mt-2">
-            Total used: {profile?.creditsUsedTotal ?? 0} credits
-          </p>
           <div className="mt-4 pt-4 border-t border-neutral-800">
             <p className="text-sm text-neutral-400">
               Plan: <span className="text-white capitalize">{profile?.subscriptionTier ?? "free"}</span>

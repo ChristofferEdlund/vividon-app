@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { headers } from "next/headers"
-import { stripe, CREDIT_AMOUNTS, SUBSCRIPTION_CREDITS } from "@/lib/stripe"
-import { db, userProfiles, creditTransactions } from "@/lib/db"
+import { getStripe, getCreditsForPriceId } from "@/lib/stripe"
+import { db } from "@/lib/db"
+import { userProfiles, creditTransactions } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import Stripe from "stripe"
+
+// Subscription credits per tier (monthly refresh)
+const SUBSCRIPTION_CREDITS: Record<string, number> = {
+  pro: 500,
+  enterprise: 2000,
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
@@ -17,6 +24,7 @@ export async function POST(request: NextRequest) {
   let event: Stripe.Event
 
   try {
+    const stripe = getStripe()
     event = stripe.webhooks.constructEvent(
       body,
       signature,
@@ -69,44 +77,57 @@ export async function POST(request: NextRequest) {
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const userId = session.metadata?.userId
-  const priceType = session.metadata?.priceType
+  const packageId = session.metadata?.packageId
+  const creditsFromMeta = session.metadata?.credits
 
-  if (!userId || !priceType) {
-    console.error("Missing metadata in checkout session")
+  if (!userId) {
+    console.error("Missing userId in checkout session metadata")
     return
   }
 
-  // One-time credit purchase
-  if (priceType.startsWith("credits_")) {
-    const creditAmount = CREDIT_AMOUNTS[priceType]
-    if (!creditAmount) return
+  // Get credit amount from metadata or price lookup
+  let creditAmount = creditsFromMeta ? parseInt(creditsFromMeta, 10) : null
 
-    const profiles = await db
-      .select()
-      .from(userProfiles)
-      .where(eq(userProfiles.id, userId))
-
-    const profile = profiles[0]
-    if (!profile) return
-
-    // Add credits
-    await db
-      .update(userProfiles)
-      .set({
-        creditsRemaining: profile.creditsRemaining + creditAmount,
-        updatedAt: new Date(),
-      })
-      .where(eq(userProfiles.id, userId))
-
-    // Record transaction
-    await db.insert(creditTransactions).values({
-      userId,
-      amount: creditAmount,
-      type: "purchase",
-      stripePaymentId: session.payment_intent as string,
-      description: `Purchased ${creditAmount} credits`,
-    })
+  // Fallback: look up from line items
+  if (!creditAmount && session.line_items?.data?.[0]?.price?.id) {
+    creditAmount = getCreditsForPriceId(session.line_items.data[0].price.id)
   }
+
+  if (!creditAmount) {
+    console.error("Could not determine credit amount for session:", session.id)
+    return
+  }
+
+  const profiles = await db
+    .select()
+    .from(userProfiles)
+    .where(eq(userProfiles.id, userId))
+
+  const profile = profiles[0]
+  if (!profile) {
+    console.error("User profile not found:", userId)
+    return
+  }
+
+  // Add credits
+  await db
+    .update(userProfiles)
+    .set({
+      creditsRemaining: profile.creditsRemaining + creditAmount,
+      updatedAt: new Date(),
+    })
+    .where(eq(userProfiles.id, userId))
+
+  // Record transaction
+  await db.insert(creditTransactions).values({
+    userId,
+    amount: creditAmount,
+    type: "purchase",
+    stripePaymentId: session.payment_intent as string,
+    description: `Purchased ${creditAmount} credits${packageId ? ` (${packageId} pack)` : ""}`,
+  })
+
+  console.log(`Added ${creditAmount} credits to user ${userId}`)
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice) {

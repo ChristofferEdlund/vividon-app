@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { stripe, STRIPE_PRODUCTS } from "@/lib/stripe"
-import { db, userProfiles } from "@/lib/db"
+import { getStripe, CREDIT_PACKAGES } from "@/lib/stripe"
+import { db } from "@/lib/db"
+import { userProfiles } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 
 export async function POST(request: NextRequest) {
@@ -16,18 +17,26 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { priceType, successUrl, cancelUrl } = body
+    const { packageId, successUrl, cancelUrl } = body
 
-    if (!priceType || !successUrl || !cancelUrl) {
+    if (!packageId || !successUrl || !cancelUrl) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields: packageId, successUrl, cancelUrl" },
         { status: 400 }
       )
     }
 
-    const priceId = STRIPE_PRODUCTS[priceType as keyof typeof STRIPE_PRODUCTS]
-    if (!priceId) {
-      return NextResponse.json({ error: "Invalid price type" }, { status: 400 })
+    // Find the credit package
+    const creditPackage = CREDIT_PACKAGES.find((p) => p.id === packageId)
+    if (!creditPackage) {
+      return NextResponse.json({ error: "Invalid package ID" }, { status: 400 })
+    }
+
+    if (!creditPackage.priceId) {
+      return NextResponse.json(
+        { error: "Stripe not configured for this package" },
+        { status: 503 }
+      )
     }
 
     // Get or create user profile
@@ -49,6 +58,8 @@ export async function POST(request: NextRequest) {
       profile = newProfiles[0]
     }
 
+    const stripe = getStripe()
+
     // Get or create Stripe customer
     let customerId = profile.stripeCustomerId
 
@@ -68,16 +79,14 @@ export async function POST(request: NextRequest) {
         .where(eq(userProfiles.id, user.id))
     }
 
-    // Determine if subscription or one-time
-    const isSubscription = priceType.includes("monthly") || priceType.includes("yearly")
-
-    // Create checkout session
+    // Create checkout session for one-time payment
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      mode: isSubscription ? "subscription" : "payment",
+      mode: "payment",
+      payment_method_types: ["card"],
       line_items: [
         {
-          price: priceId,
+          price: creditPackage.priceId,
           quantity: 1,
         },
       ],
@@ -85,7 +94,8 @@ export async function POST(request: NextRequest) {
       cancel_url: cancelUrl,
       metadata: {
         userId: user.id,
-        priceType,
+        packageId: creditPackage.id,
+        credits: creditPackage.credits.toString(),
       },
     })
 
