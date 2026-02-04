@@ -118,6 +118,43 @@ export const apiKeys = pgTable("api_keys", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 })
 
+// Plugin auth session status enum
+export const pluginAuthSessionStatusEnum = pgEnum("plugin_auth_session_status", [
+  "pending",
+  "completed",
+  "expired",
+])
+
+// Plugin auth sessions for browser-based login flow
+export const pluginAuthSessions = pgTable("plugin_auth_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionToken: text("session_token").notNull().unique(),
+  userId: uuid("user_id").references(() => userProfiles.id),
+  apiKeyId: uuid("api_key_id").references(() => apiKeys.id),
+  apiKeyPlaintext: text("api_key_plaintext"), // Temporary, cleared after retrieval
+  status: pluginAuthSessionStatusEnum("status").default("pending").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+})
+
+// Invites for waitlist users
+export const invites = pgTable("invites", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull(),
+  code: text("code").notNull().unique(),
+  creditsToGrant: integer("credits_to_grant").default(10).notNull(),
+  used: boolean("used").default(false).notNull(),
+  usedAt: timestamp("used_at"),
+  usedByUserId: uuid("used_by_user_id").references(() => userProfiles.id),
+  expiresAt: timestamp("expires_at"),
+  sentAt: timestamp("sent_at"),
+  createdByUserId: uuid("created_by_user_id")
+    .references(() => userProfiles.id)
+    .notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+})
+
 // Types for TypeScript
 export type WaitlistEntry = typeof waitlist.$inferSelect
 export type UserProfile = typeof userProfiles.$inferSelect
@@ -125,3 +162,5 @@ export type Generation = typeof generations.$inferSelect
 export type CreditTransaction = typeof creditTransactions.$inferSelect
 export type PromptLibraryEntry = typeof promptLibrary.$inferSelect
 export type ApiKey = typeof apiKeys.$inferSelect
+export type PluginAuthSession = typeof pluginAuthSessions.$inferSelect
+export type Invite = typeof invites.$inferSelect
