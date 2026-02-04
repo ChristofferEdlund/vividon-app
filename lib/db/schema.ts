@@ -49,6 +49,9 @@ export const userProfiles = pgTable("user_profiles", {
     .notNull(),
   creditsRemaining: integer("credits_remaining").default(0).notNull(),
   creditsUsedTotal: integer("credits_used_total").default(0).notNull(),
+  isApproved: boolean("is_approved").default(false).notNull(), // Must be approved to generate
+  isBlocked: boolean("is_blocked").default(false).notNull(),   // Emergency block
+  isAdmin: boolean("is_admin").default(false).notNull(),       // Can access /admin
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })

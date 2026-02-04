@@ -165,6 +165,9 @@ export default function AdminPage() {
             <h1 className="text-2xl md:text-3xl font-bold">Waitlist Signups</h1>
           </div>
           <div className="flex gap-2">
+            <Link href="/admin/users">
+              <Button variant="outline">User Management</Button>
+            </Link>
             <Button onClick={exportToCSV} variant="outline" className="gap-2">
               <DownloadIcon className="h-4 w-4" />
               Export CSV

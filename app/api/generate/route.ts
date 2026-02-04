@@ -8,14 +8,14 @@ import { validateApiKey } from "@/lib/api-keys"
 
 // Credit costs per quality tier
 const CREDIT_COSTS = {
-  cheap: 1, // Flash 1K
-  balanced: 5, // Pro 2K
-  quality: 15, // Pro 4K
+  fast: 1,      // 1K output
+  balanced: 3,  // 2K output
+  quality: 6,   // 4K output
 }
 
 // Model mapping
 const MODEL_MAP = {
-  cheap: "gemini-2.5-flash-preview-04-17",
+  fast: "gemini-2.0-flash-exp",
   balanced: "gemini-2.0-flash-exp",
   quality: "gemini-2.0-flash-exp",
 }
@@ -75,6 +75,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Check if user is approved and not blocked
+    if (!userProfile!.isApproved) {
+      return NextResponse.json(
+        { error: "Account not approved. Please wait for beta access." },
+        { status: 403 }
+      )
+    }
+
+    if (userProfile!.isBlocked) {
+      return NextResponse.json(
+        { error: "Account has been suspended." },
+        { status: 403 }
+      )
+    }
+
+    // Check global kill switch
+    if (process.env.GENERATION_ENABLED === "false") {
+      return NextResponse.json(
+        { error: "Generation is temporarily disabled." },
+        { status: 503 }
+      )
+    }
+
     // Parse request body
     const body = await request.json()
     const {
@@ -104,7 +127,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check credits
-    const creditCost = CREDIT_COSTS[qualityTier as keyof typeof CREDIT_COSTS] || 5
+    const creditCost = CREDIT_COSTS[qualityTier as keyof typeof CREDIT_COSTS] || 3
     if (userProfile!.creditsRemaining < creditCost) {
       return NextResponse.json(
         {
