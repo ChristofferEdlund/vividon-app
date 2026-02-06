@@ -4,8 +4,7 @@ import { getInvitePublicInfo } from "@/lib/invites"
 // GET /api/invite/validate?code=xxx - Validate an invite code (public)
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const code = searchParams.get("code")
+    const code = request.nextUrl.searchParams.get("code")
 
     if (!code) {
       return NextResponse.json({ error: "Code required" }, { status: 400 })
