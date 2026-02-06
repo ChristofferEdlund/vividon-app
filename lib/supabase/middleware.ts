@@ -57,11 +57,12 @@ export async function updateSession(request: NextRequest) {
 
   // Admin routes
   if (request.nextUrl.pathname.startsWith("/admin") && user) {
-    const { data: isAdmin } = await supabase.rpc("has_role", {
-      _user_id: user.id,
-      _role: "admin",
-    })
-    if (!isAdmin) {
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .single()
+    if (!profile?.is_admin) {
       const url = request.nextUrl.clone()
       url.pathname = "/"
       return NextResponse.redirect(url)
