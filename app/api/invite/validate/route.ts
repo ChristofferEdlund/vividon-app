@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getInvitePublicInfo } from "@/lib/invites"
 
+export const dynamic = "force-dynamic"
+
 // GET /api/invite/validate?code=xxx - Validate an invite code (public)
 export async function GET(request: NextRequest) {
   try {

@@ -5,6 +5,8 @@ import { userProfiles } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { revokeInvite } from "@/lib/invites"
 
+export const dynamic = "force-dynamic"
+
 const ADMIN_EMAILS = [process.env.ADMIN_EMAIL].filter(Boolean)
 
 async function isAdmin(): Promise<boolean> {

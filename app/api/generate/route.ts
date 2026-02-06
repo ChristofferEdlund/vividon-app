@@ -7,6 +7,8 @@ import { eq } from "drizzle-orm"
 import { validateApiKey } from "@/lib/api-keys"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 
+export const dynamic = "force-dynamic"
+
 // Credit costs per quality tier
 const CREDIT_COSTS = {
   fast: 1,      // 1K output

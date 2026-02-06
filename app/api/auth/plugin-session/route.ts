@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { randomBytes } from "crypto"
 import { db } from "@/lib/db"
+
+export const dynamic = "force-dynamic"
 import { pluginAuthSessions, apiKeys } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit"

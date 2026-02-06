@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { revokeApiKey } from "@/lib/api-keys"
 
+export const dynamic = "force-dynamic"
+
 // DELETE /api/keys/[id] - Revoke an API key
 export async function DELETE(
   request: NextRequest,

@@ -6,6 +6,8 @@ import { userProfiles, creditTransactions } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import Stripe from "stripe"
 
+export const dynamic = "force-dynamic"
+
 // Subscription credits per tier (monthly refresh)
 const SUBSCRIPTION_CREDITS: Record<string, number> = {
   pro: 500,

@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import { acceptInvite } from "@/lib/invites"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 
+export const dynamic = "force-dynamic"
+
 // POST /api/invite/claim - Claim an invite (authenticated)
 export async function POST(request: NextRequest) {
   try {

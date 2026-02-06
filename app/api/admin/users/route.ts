@@ -4,6 +4,8 @@ import { db } from "@/lib/db"
 import { userProfiles } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 
+export const dynamic = "force-dynamic"
+
 // Admin emails that can access this endpoint
 const ADMIN_EMAILS = [
   process.env.ADMIN_EMAIL,

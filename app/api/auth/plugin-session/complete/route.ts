@@ -5,6 +5,8 @@ import { pluginAuthSessions, userProfiles } from "@/lib/db/schema"
 import { eq, and } from "drizzle-orm"
 import { createApiKey } from "@/lib/api-keys"
 
+export const dynamic = "force-dynamic"
+
 // POST - Complete a plugin auth session (called from /auth/plugin page after login)
 export async function POST(request: NextRequest) {
   try {
