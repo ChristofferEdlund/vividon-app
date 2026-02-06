@@ -31,6 +31,11 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // Skip auth checks for the callback route - it needs to exchange the code first
+  if (request.nextUrl.pathname.startsWith("/auth/callback")) {
+    return supabaseResponse
+  }
+
   // Do not run code between createServerClient and
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
