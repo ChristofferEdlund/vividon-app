@@ -8,23 +8,27 @@ export async function GET(request: Request) {
 
   if (!next.startsWith("/")) next = "/"
 
-  if (code) {
-    const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+  const forwardedHost = request.headers.get("x-forwarded-host")
+  const isLocalEnv = process.env.NODE_ENV === "development"
 
-    if (!error) {
-      const forwardedHost = request.headers.get("x-forwarded-host")
-      const isLocalEnv = process.env.NODE_ENV === "development"
-
-      if (isLocalEnv) {
-        return NextResponse.redirect(`${origin}${next}`)
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`)
-      } else {
-        return NextResponse.redirect(`${origin}${next}`)
-      }
-    }
+  function getRedirectUrl(path: string) {
+    if (isLocalEnv) return `${origin}${path}`
+    if (forwardedHost) return `https://${forwardedHost}${path}`
+    return `${origin}${path}`
   }
 
-  return NextResponse.redirect(`${origin}/auth?error=auth-callback-failed`)
+  if (!code) {
+    return NextResponse.redirect(getRedirectUrl(`/auth?error=no-code`))
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+  if (error) {
+    return NextResponse.redirect(
+      getRedirectUrl(`/auth?error=${encodeURIComponent(error.message)}`)
+    )
+  }
+
+  return NextResponse.redirect(getRedirectUrl(next))
 }
