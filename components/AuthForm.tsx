@@ -78,7 +78,7 @@ export default function AuthForm({
         },
       }}
       theme="dark"
-      providers={[]}
+      providers={["google"]}
       redirectTo={`${typeof window !== "undefined" ? window.location.origin : ""}${redirectTo}`}
       view={view}
       showLinks={true}

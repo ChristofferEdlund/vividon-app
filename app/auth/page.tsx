@@ -159,6 +159,31 @@ export default function AuthPage() {
           </button>
         </p>
 
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-muted" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">Or</span>
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={() => {
+            supabase.auth.signInWithOAuth({
+              provider: "google",
+              options: {
+                redirectTo: `${window.location.origin}/admin`,
+              },
+            })
+          }}
+        >
+          Sign in with Google
+        </Button>
+
         <p className="text-center text-xs text-muted-foreground">
           Note: Only users with admin role can view the waitlist.
         </p>
