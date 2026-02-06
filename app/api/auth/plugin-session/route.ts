@@ -3,12 +3,16 @@ import { randomBytes } from "crypto"
 import { db } from "@/lib/db"
 import { pluginAuthSessions, apiKeys } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 
 const SESSION_TTL_MINUTES = 10
 
 // POST - Create a new plugin auth session
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    // Rate limit by IP (unauthenticated endpoint)
+    const rateLimitResponse = await checkRateLimit(request, RATE_LIMITS.pluginSession)
+    if (rateLimitResponse) return rateLimitResponse
     // Generate a secure random session token
     const sessionToken = randomBytes(32).toString("base64url")
 

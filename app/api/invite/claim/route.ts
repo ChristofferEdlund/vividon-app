@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { acceptInvite } from "@/lib/invites"
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 
 // POST /api/invite/claim - Claim an invite (authenticated)
 export async function POST(request: NextRequest) {
@@ -13,6 +14,10 @@ export async function POST(request: NextRequest) {
     if (!user || !user.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Rate limit by user ID
+    const rateLimitResponse = await checkRateLimit(request, RATE_LIMITS.inviteClaim, user.id)
+    if (rateLimitResponse) return rateLimitResponse
 
     const { code } = await request.json()
 

@@ -5,6 +5,7 @@ import { db } from "@/lib/db"
 import { userProfiles, generations, creditTransactions } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { validateApiKey } from "@/lib/api-keys"
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 
 // Credit costs per quality tier
 const CREDIT_COSTS = {
@@ -74,6 +75,10 @@ export async function POST(request: NextRequest) {
         userProfile = newProfiles[0]
       }
     }
+
+    // Rate limit check
+    const rateLimitResponse = await checkRateLimit(request, RATE_LIMITS.generate, userId)
+    if (rateLimitResponse) return rateLimitResponse
 
     // Check if user is approved and not blocked
     if (!userProfile!.isApproved) {
