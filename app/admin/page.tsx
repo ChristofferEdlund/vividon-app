@@ -44,12 +44,14 @@ export default function AdminPage() {
       }
 
       // Check admin role
-      const { data: isAdminData } = await supabase.rpc("has_role", {
-        _user_id: user.id,
-        _role: "admin",
-      })
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("is_admin")
+        .eq("id", user.id)
+        .single()
 
-      setIsAdmin(!!isAdminData)
+      const isAdminData = profile?.is_admin ?? false
+      setIsAdmin(isAdminData)
       setAuthLoading(false)
 
       if (isAdminData) {
