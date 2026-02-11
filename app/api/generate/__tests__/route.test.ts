@@ -40,11 +40,13 @@ vi.mock('@/lib/rate-limit', () => ({
   },
 }))
 
-vi.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
-    getGenerativeModel: vi.fn().mockReturnValue({
-      generateContent: vi.fn().mockResolvedValue({
-        response: {
+vi.mock('@google/genai', async (importOriginal) => {
+  const actual = await importOriginal() as any
+  return {
+    ...actual,
+    GoogleGenAI: vi.fn().mockImplementation(() => ({
+      models: {
+        generateContent: vi.fn().mockResolvedValue({
           candidates: [{
             content: {
               parts: [{
@@ -55,11 +57,11 @@ vi.mock('@google/generative-ai', () => ({
               }],
             },
           }],
-        },
-      }),
-    }),
-  })),
-}))
+        }),
+      },
+    })),
+  }
+})
 
 import { POST } from '../route'
 import { createClient } from '@/lib/supabase/server'

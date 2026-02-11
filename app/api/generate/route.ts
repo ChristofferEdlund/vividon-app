@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai"
 import { createClient } from "@/lib/supabase/server"
 import { db } from "@/lib/db"
 import { userProfiles, generations, creditTransactions } from "@/lib/db/schema"
@@ -16,12 +16,48 @@ const CREDIT_COSTS = {
   quality: 6,   // 4K output
 }
 
-// Model mapping
-const MODEL_MAP = {
-  fast: "gemini-2.0-flash-exp",
-  balanced: "gemini-2.0-flash-exp",
-  quality: "gemini-2.0-flash-exp",
+// Single model for all tiers
+const GENERATION_MODEL = "gemini-3-pro-image-preview"
+
+// Image size per quality tier (undefined = model default / 1K)
+const IMAGE_SIZE_MAP: Record<string, string | undefined> = {
+  fast: undefined,
+  balanced: "2K",
+  quality: "4K",
 }
+
+// ── Prompt instructions (mirrored from plugin constants) ──
+
+const SYSTEM_INSTRUCTION = `You are a professional image retouching model specializing in lighting adjustments.
+
+CRITICAL CONSTRAINTS:
+• Preserve geometry and composition EXACTLY - no warping, distortion, or perspective changes
+• Do NOT add, remove, or modify any objects, subjects, or elements
+• Do NOT change identity, pose, facial features, body proportions, or expressions
+• Do NOT alter text, logos, signs, or any readable content
+• Do NOT crop, zoom, pan, or change framing
+• Keep all edges, boundaries, and spatial relationships identical
+
+ALLOWED CHANGES:
+• Lighting direction, intensity, and quality
+• Color temperature and color grading (warm/cool tones)
+• Exposure, brightness, and contrast
+• Shadow depth and highlight intensity
+• Atmospheric effects (haze, glow, ambient light)
+
+OUTPUT REQUIREMENT: The result must be pixel-aligned with the input - same composition, same structure, only lighting differs.`
+
+const DETAIL_PRESERVATION_SUFFIX =
+  " IMPORTANT: Preserve all details, textures, composition, subjects, and structure exactly. Only change the lighting as described. Keep the scene pixel-aligned - no cropping, no zoom, no warping, no perspective change."
+
+// All safety categories turned off (professional image editing use case)
+const SAFETY_SETTINGS = [
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.OFF },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.OFF },
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.OFF },
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.OFF },
+  { category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold: HarmBlockThreshold.OFF },
+]
 
 export async function POST(request: NextRequest) {
   try {
@@ -147,13 +183,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Create generation record
-    const model = MODEL_MAP[qualityTier as keyof typeof MODEL_MAP] || MODEL_MAP.balanced
-
     const [generation] = await db
       .insert(generations)
       .values({
         userId,
-        modelUsed: model,
+        modelUsed: GENERATION_MODEL,
         qualityTier,
         creditsCost: creditCost,
         status: "processing",
@@ -164,59 +198,55 @@ export async function POST(request: NextRequest) {
       .returning()
 
     try {
-      // Initialize Gemini
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-      const geminiModel = genAI.getGenerativeModel({ model })
+      // Initialize Gemini (new SDK)
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
 
-      // Build content parts
+      // Build content parts with proper labeling for style transfer
+      const hasReference = !!(referenceImageUri || referenceBase64)
       const parts: any[] = []
 
-      // Add input image
+      // Input image (with label if style transfer)
+      if (hasReference) {
+        parts.push({ text: "TARGET IMAGE (preserve this content exactly):" })
+      }
       if (inputFileUri) {
-        parts.push({
-          fileData: {
-            mimeType: inputMimeType,
-            fileUri: inputFileUri,
-          },
-        })
+        parts.push({ fileData: { mimeType: inputMimeType, fileUri: inputFileUri } })
       } else if (inputBase64) {
-        parts.push({
-          inlineData: {
-            mimeType: inputMimeType,
-            data: inputBase64,
-          },
-        })
+        parts.push({ inlineData: { mimeType: inputMimeType, data: inputBase64 } })
       }
 
-      // Add reference image if provided
-      if (referenceImageUri) {
-        parts.push({
-          fileData: {
-            mimeType: "image/png",
-            fileUri: referenceImageUri,
-          },
-        })
-      } else if (referenceBase64) {
-        parts.push({
-          inlineData: {
-            mimeType: "image/png",
-            data: referenceBase64,
-          },
-        })
+      // Reference image (style transfer only)
+      if (hasReference) {
+        parts.push({ text: "REFERENCE IMAGE (copy lighting style from this):" })
+        if (referenceImageUri) {
+          parts.push({ fileData: { mimeType: "image/png", fileUri: referenceImageUri } })
+        } else if (referenceBase64) {
+          parts.push({ inlineData: { mimeType: "image/png", data: referenceBase64 } })
+        }
       }
 
-      // Add prompt
-      parts.push({ text: prompt })
+      // Prompt with detail preservation suffix
+      parts.push({ text: `${prompt}${DETAIL_PRESERVATION_SUFFIX}` })
 
-      // Generate
-      const result = await geminiModel.generateContent({
+      // Build image config
+      const imageSize = IMAGE_SIZE_MAP[qualityTier]
+      const imageConfig: Record<string, string> = { aspectRatio }
+      if (imageSize) {
+        imageConfig.imageSize = imageSize
+      }
+
+      // Generate with full config (system instruction, safety, thinking)
+      const response = await ai.models.generateContent({
+        model: GENERATION_MODEL,
         contents: [{ role: "user", parts }],
-        generationConfig: {
-          responseModalities: ["image", "text"],
-        } as any,
-      })
+        systemInstruction: SYSTEM_INSTRUCTION,
+        config: {
+          responseModalities: ["image"],
+          safetySettings: SAFETY_SETTINGS,
+          ...({ imageConfig } as any),
+        },
+      } as any)
 
-      const response = result.response
       const candidate = response.candidates?.[0]
 
       if (!candidate?.content?.parts) {
