@@ -62,8 +62,8 @@ export const generations = pgTable("generations", {
   userId: uuid("user_id")
     .references(() => userProfiles.id)
     .notNull(),
-  modelUsed: text("model_used").notNull(), // e.g., "gemini-2.5-flash-image"
-  qualityTier: text("quality_tier").notNull(), // "cheap", "balanced", "quality"
+  modelUsed: text("model_used").notNull(), // e.g., "gemini-3.1-flash-image-preview"
+  qualityTier: text("quality_tier").notNull(), // "normal", "pro2k", "pro4k"
   creditsCost: integer("credits_cost").notNull(),
   status: generationStatusEnum("status").default("pending").notNull(),
   inputFileUri: text("input_file_uri"),

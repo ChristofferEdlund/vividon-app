@@ -9,21 +9,40 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
 
-// Credit costs per quality tier
-const CREDIT_COSTS = {
-  fast: 1,      // 1K output
-  balanced: 3,  // 2K output
-  quality: 6,   // 4K output
+// Backward-compat: map old tier names to new names
+const TIER_MIGRATION: Record<string, string> = {
+  fast: "fast2k",
+  balanced: "pro2k",
+  quality: "pro4k",
+  normal: "fast2k",
 }
 
-// Single model for all tiers
-const GENERATION_MODEL = "gemini-3-pro-image-preview"
+// Model per quality tier
+const GENERATION_MODELS: Record<string, string> = {
+  fast2k: "gemini-3.1-flash-image-preview",
+  fast4k: "gemini-3.1-flash-image-preview",
+  pro2k: "gemini-3-pro-image-preview",
+  pro4k: "gemini-3-pro-image-preview",
+}
 
-// Image size per quality tier (undefined = model default / 1K)
+// Credit costs per quality tier
+const CREDIT_COSTS: Record<string, number> = {
+  fast2k: 1,
+  fast4k: 2,
+  pro2k: 3,
+  pro4k: 6,
+}
+
+function getCreditCost(qualityTier: string): number {
+  return CREDIT_COSTS[qualityTier] ?? 3
+}
+
+// Image size per quality tier
 const IMAGE_SIZE_MAP: Record<string, string | undefined> = {
-  fast: undefined,
-  balanced: "2K",
-  quality: "4K",
+  fast2k: "2K",
+  fast4k: "4K",
+  pro2k: "2K",
+  pro4k: "4K",
 }
 
 // ── Prompt instructions (mirrored from plugin constants) ──
@@ -152,11 +171,15 @@ export async function POST(request: NextRequest) {
       inputMimeType = "image/png",
       prompt,
       aspectRatio = "1:1",
-      qualityTier = "balanced",
+      qualityTier: rawQualityTier = "fast2k",
+      imageSize: requestedImageSize,
       referenceImageUri,
       referenceBase64,
       suggestName = false,
     } = body
+
+    // Normalize tier name (backward compat with old plugin versions)
+    const qualityTier = TIER_MIGRATION[rawQualityTier] || rawQualityTier
 
     // Require either URI or base64
     if (!inputFileUri && !inputBase64) {
@@ -174,7 +197,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check credits
-    const creditCost = CREDIT_COSTS[qualityTier as keyof typeof CREDIT_COSTS] || 3
+    const creditCost = getCreditCost(qualityTier)
     if (userProfile!.creditsRemaining < creditCost) {
       return NextResponse.json(
         {
@@ -186,12 +209,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Select model for this tier
+    const generationModel = GENERATION_MODELS[qualityTier] || GENERATION_MODELS.pro2k
+
     // Create generation record
     const [generation] = await db
       .insert(generations)
       .values({
         userId,
-        modelUsed: GENERATION_MODEL,
+        modelUsed: generationModel,
         qualityTier,
         creditsCost: creditCost,
         status: "processing",
@@ -241,7 +267,7 @@ export async function POST(request: NextRequest) {
 
       // Log what we're sending to Gemini (structure only, no base64 data)
       console.log("[Gemini request]", JSON.stringify({
-        model: GENERATION_MODEL,
+        model: generationModel,
         partsStructure: parts.map((p: any) => ({
           hasText: !!p.text,
           textPreview: p.text?.slice(0, 80),
@@ -258,7 +284,7 @@ export async function POST(request: NextRequest) {
 
       // Generate with full config (system instruction, safety, thinking)
       const response = await ai.models.generateContent({
-        model: GENERATION_MODEL,
+        model: generationModel,
         contents: [{ role: "user", parts }],
         systemInstruction: SYSTEM_INSTRUCTION,
         config: {
