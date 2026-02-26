@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
@@ -28,7 +28,14 @@ export default function InvitePage() {
   const [creditsGranted, setCreditsGranted] = useState<number>(0)
   const [user, setUser] = useState<{ email?: string } | null>(null)
 
+  // Use refs to avoid stale closures and race conditions
+  const inviteRef = useRef<InviteInfo | null>(null)
+  const claimingRef = useRef(false)
+
   const claimInvite = useCallback(async () => {
+    // Prevent double-claiming
+    if (claimingRef.current) return
+    claimingRef.current = true
     setStatus("claiming")
 
     try {
@@ -41,6 +48,7 @@ export default function InvitePage() {
       const data = await response.json()
 
       if (!response.ok) {
+        claimingRef.current = false
         setStatus("error")
         setError(data.error || "Failed to claim invite")
         return
@@ -49,6 +57,7 @@ export default function InvitePage() {
       setCreditsGranted(data.creditsGranted)
       setStatus("success")
     } catch (err: unknown) {
+      claimingRef.current = false
       setStatus("error")
       const message =
         err instanceof Error ? err.message : "Failed to claim invite"
@@ -56,8 +65,8 @@ export default function InvitePage() {
     }
   }, [code])
 
+  // Validate the invite code (runs once)
   useEffect(() => {
-    // Validate the invite code
     const validateInvite = async () => {
       try {
         const response = await fetch(
@@ -72,6 +81,7 @@ export default function InvitePage() {
         }
 
         setInvite(data.invite)
+        inviteRef.current = data.invite
 
         // Check if user is already logged in
         const {
@@ -79,7 +89,6 @@ export default function InvitePage() {
         } = await supabase.auth.getSession()
         if (session) {
           setUser(session.user)
-          // Auto-claim if email matches
           if (
             session.user.email?.toLowerCase() ===
             data.invite.email.toLowerCase()
@@ -100,15 +109,18 @@ export default function InvitePage() {
     }
 
     validateInvite()
+  }, [code, supabase.auth, claimInvite])
 
-    // Listen for auth changes
+  // Listen for auth changes (separate effect, uses ref for invite)
+  useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session && invite) {
+      if (event === "SIGNED_IN" && session && inviteRef.current) {
         setUser(session.user)
         if (
-          session.user.email?.toLowerCase() === invite.email.toLowerCase()
+          session.user.email?.toLowerCase() ===
+          inviteRef.current.email.toLowerCase()
         ) {
           claimInvite()
         } else {
@@ -118,7 +130,13 @@ export default function InvitePage() {
     })
 
     return () => subscription.unsubscribe()
-  }, [code, supabase.auth, claimInvite, invite])
+  }, [supabase.auth, claimInvite])
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setStatus("valid")
+  }
 
   return (
     <div className="relative min-h-screen flex flex-col overflow-hidden">
@@ -201,15 +219,21 @@ export default function InvitePage() {
                       </p>
                     </div>
                   )}
-                  <button
-                    onClick={claimInvite}
-                    className="w-full px-4 py-3 bg-[#10B981] hover:bg-[#059669] text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={
-                      user.email?.toLowerCase() !== invite.email.toLowerCase()
-                    }
-                  >
-                    Claim {invite.creditsToGrant} Credits
-                  </button>
+                  {user.email?.toLowerCase() === invite.email.toLowerCase() ? (
+                    <button
+                      onClick={claimInvite}
+                      className="w-full px-4 py-3 bg-[#10B981] hover:bg-[#059669] text-white font-medium rounded-lg transition-colors"
+                    >
+                      Claim {invite.creditsToGrant} Credits
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full px-4 py-3 border border-neutral-600 text-neutral-300 hover:bg-neutral-800 rounded-lg transition-colors"
+                    >
+                      Sign Out &amp; Try Again
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>
