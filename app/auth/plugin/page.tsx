@@ -17,9 +17,13 @@ function PluginAuthContent() {
     "loading" | "login" | "completing" | "success" | "waitlisted" | "error"
   >("loading")
   const [error, setError] = useState<string | null>(null)
+  const completingRef = useCallback(() => {
+    let called = false
+    return () => { if (called) return false; called = true; return true }
+  }, [])()
 
   const completeSession = useCallback(async () => {
-    if (!sessionToken) return
+    if (!sessionToken || !completingRef()) return
 
     try {
       const response = await fetch("/api/auth/plugin-session/complete", {
@@ -31,6 +35,11 @@ function PluginAuthContent() {
       const data = await response.json()
 
       if (!response.ok) {
+        // "Already completed" means the plugin already got the key — treat as success
+        if (response.status === 404 || data.error?.includes("already completed")) {
+          setStatus("success")
+          return
+        }
         setStatus("error")
         setError(data.error || "Failed to complete authentication")
         return
