@@ -123,6 +123,7 @@ export const pluginAuthSessionStatusEnum = pgEnum("plugin_auth_session_status", 
   "pending",
   "completed",
   "expired",
+  "waitlisted",
 ])
 
 // Plugin auth sessions for browser-based login flow

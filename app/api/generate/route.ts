@@ -50,6 +50,9 @@ OUTPUT REQUIREMENT: The result must be pixel-aligned with the input - same compo
 const DETAIL_PRESERVATION_SUFFIX =
   " IMPORTANT: Preserve all details, textures, composition, subjects, and structure exactly. Only change the lighting as described. Keep the scene pixel-aligned - no cropping, no zoom, no warping, no perspective change."
 
+const NAME_INSTRUCTION =
+  " First, output exactly one line: NAME: <a 2-5 word title for this lighting effect>. Then edit the provided image with the requested lighting change."
+
 // All safety categories turned off (professional image editing use case)
 const SAFETY_SETTINGS = [
   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.OFF },
@@ -152,6 +155,7 @@ export async function POST(request: NextRequest) {
       qualityTier = "balanced",
       referenceImageUri,
       referenceBase64,
+      suggestName = false,
     } = body
 
     // Require either URI or base64
@@ -225,8 +229,8 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Prompt with detail preservation suffix
-      parts.push({ text: `${prompt}${DETAIL_PRESERVATION_SUFFIX}` })
+      // Prompt with detail preservation suffix (+ name instruction when requested)
+      parts.push({ text: `${prompt}${DETAIL_PRESERVATION_SUFFIX}${suggestName ? NAME_INSTRUCTION : ""}` })
 
       // Build image config
       const imageSize = IMAGE_SIZE_MAP[qualityTier]
@@ -235,13 +239,30 @@ export async function POST(request: NextRequest) {
         imageConfig.imageSize = imageSize
       }
 
+      // Log what we're sending to Gemini (structure only, no base64 data)
+      console.log("[Gemini request]", JSON.stringify({
+        model: GENERATION_MODEL,
+        partsStructure: parts.map((p: any) => ({
+          hasText: !!p.text,
+          textPreview: p.text?.slice(0, 80),
+          hasInlineData: !!p.inlineData,
+          inlineDataMime: p.inlineData?.mimeType,
+          inlineDataSize: p.inlineData?.data?.length,
+          hasFileData: !!p.fileData,
+        })),
+        responseModalities: suggestName ? ["text", "image"] : ["image"],
+        imageConfig,
+        hasReference,
+        qualityTier,
+      }))
+
       // Generate with full config (system instruction, safety, thinking)
       const response = await ai.models.generateContent({
         model: GENERATION_MODEL,
         contents: [{ role: "user", parts }],
         systemInstruction: SYSTEM_INSTRUCTION,
         config: {
-          responseModalities: ["image"],
+          responseModalities: suggestName ? ["text", "image"] : ["image"],
           safetySettings: SAFETY_SETTINGS,
           ...({ imageConfig } as any),
         },
@@ -250,7 +271,9 @@ export async function POST(request: NextRequest) {
       const candidate = response.candidates?.[0]
 
       if (!candidate?.content?.parts) {
-        throw new Error("No response from Gemini")
+        const finishReason = candidate?.finishReason
+        console.error("Gemini returned no parts. finishReason:", finishReason, "candidate:", JSON.stringify(candidate, null, 2))
+        throw new Error(`No response from Gemini (finishReason: ${finishReason || "unknown"})`)
       }
 
       // Find image in response
@@ -259,8 +282,37 @@ export async function POST(request: NextRequest) {
       )
 
       if (!imagePart?.inlineData) {
-        throw new Error("No image in Gemini response")
+        // Extract any text the model returned (often explains why it refused)
+        const textParts = candidate.content.parts
+          .filter((part: any) => typeof part.text === "string")
+          .map((part: any) => part.text)
+          .join("\n")
+        const finishReason = candidate.finishReason
+        console.error("Gemini returned no image. finishReason:", finishReason, "text:", textParts, "parts:", JSON.stringify(candidate.content.parts.map((p: any) => ({ hasText: !!p.text, hasInlineData: !!p.inlineData, mimeType: p.inlineData?.mimeType }))))
+        throw new Error(textParts
+          ? `Image generation refused: ${textParts.slice(0, 200)}`
+          : `No image in Gemini response (finishReason: ${finishReason || "unknown"})`)
       }
+
+      // Extract suggested name from text part (if present)
+      const textPart = candidate.content.parts.find((part: any) => typeof part.text === "string")
+      let suggestedName: string | undefined
+      if (textPart?.text) {
+        const match = textPart.text.match(/NAME:\s*(.+)/i)
+        if (match?.[1]) {
+          suggestedName = match[1].trim()
+        }
+      }
+
+      // Log success details
+      console.log("[Gemini response]", JSON.stringify({
+        finishReason: candidate.finishReason,
+        partsCount: candidate.content.parts.length,
+        outputImageMime: imagePart.inlineData.mimeType,
+        outputImageSize: imagePart.inlineData.data?.length,
+        textResponse: textPart?.text?.slice(0, 200),
+        suggestedName,
+      }))
 
       // Deduct credits
       await db
@@ -299,6 +351,7 @@ export async function POST(request: NextRequest) {
         },
         creditsUsed: creditCost,
         creditsRemaining: userProfile!.creditsRemaining - creditCost,
+        ...(suggestedName ? { suggestedName } : {}),
       })
     } catch (genError: any) {
       // Update generation as failed
@@ -315,6 +368,22 @@ export async function POST(request: NextRequest) {
     }
   } catch (error: any) {
     console.error("Generate API error:", error)
+
+    // Detect Gemini SDK errors and forward proper status + clean message
+    const geminiStatus = error.status ?? error.code
+    if (typeof geminiStatus === "number" && geminiStatus >= 400) {
+      const cleanMessages: Record<number, string> = {
+        429: "Too many requests. Please wait a moment and try again.",
+        503: "The AI model is temporarily unavailable due to high demand. Please try again shortly.",
+        500: "The AI model encountered an internal error. Please try again.",
+        504: "The AI model timed out. Please try again.",
+      }
+      return NextResponse.json(
+        { error: cleanMessages[geminiStatus] || `AI model error (${geminiStatus}). Please try again.`, retryable: geminiStatus === 429 || geminiStatus === 503 },
+        { status: geminiStatus }
+      )
+    }
+
     return NextResponse.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

@@ -73,21 +73,29 @@ export async function POST(request: NextRequest) {
 
     const profile = profiles[0]
 
-    if (!profile.isApproved) {
-      return NextResponse.json(
-        {
-          error:
-            "Account not approved. Please wait for approval or contact support.",
-        },
-        { status: 403 }
-      )
-    }
-
     if (profile.isBlocked) {
       return NextResponse.json(
         { error: "Account is blocked. Please contact support." },
         { status: 403 }
       )
+    }
+
+    if (!profile.isApproved) {
+      // Mark session as waitlisted so the plugin can show a friendly message
+      await db
+        .update(pluginAuthSessions)
+        .set({
+          userId: user.id,
+          status: "waitlisted",
+          completedAt: new Date(),
+        })
+        .where(eq(pluginAuthSessions.id, session.id))
+
+      return NextResponse.json({
+        status: "waitlisted",
+        message:
+          "You're on the beta waitlist! We'll notify you when your account is activated.",
+      })
     }
 
     // Create a new API key for the plugin

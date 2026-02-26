@@ -2,27 +2,45 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { db, userProfiles, generations, creditTransactions } from "@/lib/db"
 import { eq, desc } from "drizzle-orm"
+import { validateApiKey } from "@/lib/api-keys"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    let userId: string
+    let profile: typeof userProfiles.$inferSelect | null = null
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Dual auth: API key (viv_xxx) or Supabase session
+    const authHeader = request.headers.get("authorization")
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null
+
+    if (token?.startsWith("viv_")) {
+      const validation = await validateApiKey(token)
+      if (!validation) {
+        return NextResponse.json({ error: "Invalid API key" }, { status: 401 })
+      }
+      userId = validation.user.id
+      profile = validation.user
+    } else {
+      const supabase = await createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
+
+      userId = user.id
+
+      const profiles = await db
+        .select()
+        .from(userProfiles)
+        .where(eq(userProfiles.id, userId))
+
+      profile = profiles[0] || null
     }
-
-    // Get user profile
-    const profiles = await db
-      .select()
-      .from(userProfiles)
-      .where(eq(userProfiles.id, user.id))
-
-    const profile = profiles[0]
 
     if (!profile) {
       return NextResponse.json({
@@ -37,7 +55,7 @@ export async function GET(request: NextRequest) {
     const recentGenerations = await db
       .select()
       .from(generations)
-      .where(eq(generations.userId, user.id))
+      .where(eq(generations.userId, userId))
       .orderBy(desc(generations.createdAt))
       .limit(10)
 
@@ -45,7 +63,7 @@ export async function GET(request: NextRequest) {
     const recentTransactions = await db
       .select()
       .from(creditTransactions)
-      .where(eq(creditTransactions.userId, user.id))
+      .where(eq(creditTransactions.userId, userId))
       .orderBy(desc(creditTransactions.createdAt))
       .limit(10)
 

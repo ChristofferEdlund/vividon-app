@@ -14,7 +14,7 @@ function PluginAuthContent() {
   const sessionToken = searchParams.get("session")
 
   const [status, setStatus] = useState<
-    "loading" | "login" | "completing" | "success" | "error"
+    "loading" | "login" | "completing" | "success" | "waitlisted" | "error"
   >("loading")
   const [error, setError] = useState<string | null>(null)
 
@@ -33,6 +33,11 @@ function PluginAuthContent() {
       if (!response.ok) {
         setStatus("error")
         setError(data.error || "Failed to complete authentication")
+        return
+      }
+
+      if (data.status === "waitlisted") {
+        setStatus("waitlisted")
         return
       }
 
@@ -150,6 +155,42 @@ function PluginAuthContent() {
               </p>
               <p className="text-sm text-neutral-500">
                 The plugin will automatically detect your login.
+              </p>
+            </div>
+          )}
+
+          {status === "waitlisted" && (
+            <div className="text-center">
+              <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg
+                  className="w-8 h-8 text-amber-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-xl font-medium text-white mb-2">
+                Beta Access Required
+              </h2>
+              <p className="text-neutral-400 mb-4">
+                Vividon is currently in closed beta. Join the waitlist and
+                we&apos;ll let you know when you&apos;re in.
+              </p>
+              <Link
+                href="/signup"
+                className="inline-block px-6 py-2.5 bg-[#3B82F6] hover:bg-[#2563EB] text-white font-medium rounded-lg transition-colors mb-4"
+              >
+                Join the Waitlist
+              </Link>
+              <p className="text-sm text-neutral-500">
+                You can close this window and return to Photoshop.
               </p>
             </div>
           )}

@@ -86,6 +86,15 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // If waitlisted, user signed up but isn't approved yet
+    if (session.status === "waitlisted") {
+      return NextResponse.json({
+        status: "waitlisted",
+        message:
+          "You're on the beta waitlist. We'll notify you when your account is activated.",
+      })
+    }
+
     // If completed, return the API key
     if (session.status === "completed" && session.apiKeyPlaintext) {
       // Get API key prefix for display
