@@ -69,8 +69,7 @@ OUTPUT REQUIREMENT: The result must be pixel-aligned with the input - same compo
 const DETAIL_PRESERVATION_SUFFIX =
   " IMPORTANT: Preserve all details, textures, composition, subjects, and structure exactly. Only change the lighting as described. Keep the scene pixel-aligned - no cropping, no zoom, no warping, no perspective change."
 
-const NAME_INSTRUCTION =
-  " First, output exactly one line: NAME: <a 2-5 word title for this lighting effect>. Then edit the provided image with the requested lighting change."
+const NAME_MODEL = "gemini-2.5-flash"
 
 // All safety categories turned off (professional image editing use case)
 const SAFETY_SETTINGS = [
@@ -255,8 +254,8 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Prompt with detail preservation suffix (+ name instruction when requested)
-      parts.push({ text: `${prompt}${DETAIL_PRESERVATION_SUFFIX}${suggestName ? NAME_INSTRUCTION : ""}` })
+      // Prompt with detail preservation suffix (name is generated separately)
+      parts.push({ text: `${prompt}${DETAIL_PRESERVATION_SUFFIX}` })
 
       // Build image config
       const imageSize = IMAGE_SIZE_MAP[qualityTier]
@@ -276,23 +275,39 @@ export async function POST(request: NextRequest) {
           inlineDataSize: p.inlineData?.data?.length,
           hasFileData: !!p.fileData,
         })),
-        responseModalities: suggestName ? ["text", "image"] : ["image"],
+        responseModalities: ["image"],
         imageConfig,
         hasReference,
         qualityTier,
       }))
 
       // Generate with full config (system instruction, safety, thinking)
-      const response = await ai.models.generateContent({
+      // Fire image generation and (optionally) name suggestion in parallel
+      const imagePromise = ai.models.generateContent({
         model: generationModel,
         contents: [{ role: "user", parts }],
         systemInstruction: SYSTEM_INSTRUCTION,
         config: {
-          responseModalities: suggestName ? ["text", "image"] : ["image"],
+          responseModalities: ["image"],
           safetySettings: SAFETY_SETTINGS,
           ...({ imageConfig } as any),
         },
       } as any)
+
+      const namePromise = suggestName
+        ? ai.models.generateContent({
+            model: NAME_MODEL,
+            contents: [{
+              role: "user",
+              parts: [{ text: `Given this lighting/editing prompt, generate a short 2-5 word title for the effect. Reply with ONLY the title, nothing else.\n\nPrompt: "${prompt}"` }],
+            }],
+          }).catch((nameError: any) => {
+            console.error("[Gemini name suggestion failed]", nameError)
+            return null // Non-critical — continue without a name
+          })
+        : Promise.resolve(null)
+
+      const [response, nameResponse] = await Promise.all([imagePromise, namePromise])
 
       const candidate = response.candidates?.[0]
 
@@ -320,25 +335,22 @@ export async function POST(request: NextRequest) {
           : `No image in Gemini response (finishReason: ${finishReason || "unknown"})`)
       }
 
-      // Extract suggested name from text part (if present)
-      const textPart = candidate.content.parts.find((part: any) => typeof part.text === "string")
-      let suggestedName: string | undefined
-      if (textPart?.text) {
-        const match = textPart.text.match(/NAME:\s*(.+)/i)
-        if (match?.[1]) {
-          suggestedName = match[1].trim()
-        }
-      }
-
       // Log success details
       console.log("[Gemini response]", JSON.stringify({
         finishReason: candidate.finishReason,
         partsCount: candidate.content.parts.length,
         outputImageMime: imagePart.inlineData.mimeType,
         outputImageSize: imagePart.inlineData.data?.length,
-        textResponse: textPart?.text?.slice(0, 200),
-        suggestedName,
       }))
+
+      // Extract suggested name from parallel text call
+      let suggestedName: string | undefined
+      if (nameResponse) {
+        const nameText = nameResponse.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+        if (nameText) {
+          suggestedName = nameText.replace(/^["']|["']$/g, "")
+        }
+      }
 
       // Deduct credits
       await db
