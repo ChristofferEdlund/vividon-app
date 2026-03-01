@@ -281,7 +281,6 @@ export async function POST(request: NextRequest) {
         qualityTier,
       }))
 
-      // Generate with full config (system instruction, safety, thinking)
       // Fire image generation and (optionally) name suggestion in parallel
       const imagePromise = ai.models.generateContent({
         model: generationModel,
